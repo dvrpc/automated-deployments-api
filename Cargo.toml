@@ -1,0 +1,21 @@
+[package]
+name = "automated-deployments-api"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kris Warner <kdwarn@protonmail.com>"]
+repository = "https://github.com/dvrpc/automated-deployments-api"
+license = "AGPL-3.0-or-later"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+camino = "1.1.6"
+dotenvy = "0.15.7"
+dropshot = "0.9.0"
+hmac = "0.12.1"
+http = "0.2.9"
+schemars = "0.8.12"
+serde = "1.0.171"
+serde_json = "1.0.107"
+sha2 = "0.10.7"
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
