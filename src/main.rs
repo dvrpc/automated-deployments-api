@@ -105,29 +105,38 @@ async fn post_webhook(
             Err(e) => Err(HttpError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR,
                 error_code: None,
-                external_message: "Unable to verify authorization.".to_string(),
+                external_message: "Unable to verify token.".to_string(),
                 internal_message: e.to_string(),
             }),
         },
         Err(e) => Err(HttpError {
             status_code: StatusCode::INTERNAL_SERVER_ERROR,
             error_code: None,
-            external_message: "Unable to verify authorization.".to_string(),
+            external_message: "Unable to verify token.".to_string(),
             internal_message: e.to_string(),
         }),
     }?;
 
     // Compute the hash from our secret and the received body, compare with signature in header.
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("failed to create new hmac sha");
+    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(HttpError {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                error_code: None,
+                external_message: "Unable to verify token.".to_string(),
+                internal_message: e.to_string(),
+            })
+        }
+    };
     mac.update(body.as_bytes());
     let computed_hash = format!("{:x}", mac.finalize().into_bytes());
 
     if computed_hash != received_hash {
         return Err(HttpError {
-            status_code: StatusCode::UNAUTHORIZED,
+            status_code: StatusCode::FORBIDDEN,
             error_code: None,
-            external_message: "Unable to verify authorization.".to_string(),
+            external_message: "Invalid token.".to_string(),
             internal_message: "Mismatched hashes".to_string(),
         });
     }
