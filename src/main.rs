@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::process::Command;
 
@@ -9,18 +10,10 @@ use dropshot::{
 };
 use hmac::{Hmac, Mac};
 use http::StatusCode;
-use schemars::JsonSchema;
-use serde::Serialize;
 use serde_json::Value;
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
-
-// #[derive(Serialize, JsonSchema)]
-// struct CommandResult {
-//     success: bool,
-//     exit_status_code: Option<i32>,
-// }
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -46,7 +39,6 @@ async fn main() -> Result<(), String> {
     // Create an OpenAPI definition, adding title and version.
     let mut openapi = api.openapi("DVRPC Automated Deployments API", "0.1.0");
 
-    // Add description.
     openapi.description("API built with Dropshot for automated deployments.");
 
     // Panic if no .env file.
@@ -78,6 +70,17 @@ async fn post_webhook(
     rqctx: RequestContext<()>,
     body: UntypedBody,
 ) -> Result<HttpResponseOk<()>, HttpError> {
+    let tag_map = HashMap::from([
+        ("dvrpc/crash-api", "crash"),
+        ("dvrpc/oced-econ-data", "econ_data"),
+        ("dvrpc/low-stress-bike-routing", "low_stress_bike_routing"),
+        ("dvrpc/lps-api", "lspv2"),
+        ("dvrpc/sidewalk-priorities-api", "mcosp"),
+        ("dvrpc/rtsp-api", "rtsp"),
+        ("dvrpc/tp-updates", "tp_updates"),
+        // ("dvrpc/cjtf", "cjtf"),
+    ]);
+
     // Get required header
     let headers = rqctx.request.headers();
     if !headers.contains_key("x-hub-signature-256") {
@@ -144,7 +147,9 @@ async fn post_webhook(
     // Determine what app/API this is for.
     let name = match serde_json::from_slice::<Value>(body.as_bytes()) {
         Ok(v) => match v.get("repository") {
-            Some(repo) => repo["full_name"].to_string(),
+            // Value.as_str() strips double quotes, but we also need it to be owned, so also
+            // use to_string()
+            Some(repo) => repo["full_name"].as_str().unwrap().to_string(),
             None => {
                 return Err(HttpError {
                     status_code: StatusCode::BAD_REQUEST,
@@ -164,33 +169,43 @@ async fn post_webhook(
         }
     };
 
-    dbg!(&name);
+    // Get corresponding tag to use in Ansible playbook.
+    let tag = match tag_map.get(name.as_str()) {
+        None => {
+            return Err(HttpError {
+                status_code: StatusCode::BAD_REQUEST,
+                error_code: None,
+                external_message: format!("{} is not set up for automated deployment.", &name),
+                internal_message: format!("{} is not set up for automated deployment.", &name),
+            });
+        }
+        Some(v) => v,
+    };
 
-    // Run the appropriate part of Ansible playbook
-    // match Command::new("ansible-playbook")
-    //     .current_dir("/srv/cloud-ansible")
-    //     .args([
-    //         "controler_playbook.yaml",
-    //         "-i",
-    //         "inventories/control.yaml",
-    //         "--tags", // another parameter to follow with appropriate tag, based on repo
-    //     ])
-    //     .output()
-    // {
-    //     Ok(v) if !v.status.success() => Err(HttpError {
-    //         status_code: StatusCode::INTERNAL_SERVER_ERROR,
-    //         error_code: None,
-    //         external_message: "Program did not complete successfully.".to_string(),
-    //         internal_message: String::from_utf8_lossy(&v.stderr).into_owned(),
-    //     }),
-    //     Ok(_) => Ok(HttpResponseOk(())),
-    //     Err(e) => Err(HttpError {
-    //         status_code: StatusCode::INTERNAL_SERVER_ERROR,
-    //         error_code: None,
-    //         external_message: "Internal server error".to_string(),
-    //         internal_message: format!("Error trying to run the program: {}", e),
-    //     }),
-    // }
-
-    Ok(HttpResponseOk(()))
+    // Run the Ansible playbook with appropriate tag
+    match Command::new("ansible-playbook")
+        .current_dir("/srv/cloud-ansible")
+        .args([
+            "controler_playbook.yaml",
+            "-i",
+            "inventories/control.yaml",
+            "--tags",
+            tag,
+        ])
+        .output()
+    {
+        Ok(v) if !v.status.success() => Err(HttpError {
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            error_code: None,
+            external_message: "Program did not complete successfully.".to_string(),
+            internal_message: String::from_utf8_lossy(&v.stderr).into_owned(),
+        }),
+        Ok(_) => Ok(HttpResponseOk(())),
+        Err(e) => Err(HttpError {
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            error_code: None,
+            external_message: "Internal server error".to_string(),
+            internal_message: format!("Error trying to run the program: {}", e),
+        }),
+    }
 }
