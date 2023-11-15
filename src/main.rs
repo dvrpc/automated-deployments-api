@@ -186,9 +186,11 @@ async fn post_webhook(
     match Command::new("ansible-playbook")
         .current_dir("/srv/cloud-ansible")
         .args([
-            "controler_playbook.yaml",
+            "controller_playbook.yaml",
             "-i",
-            "inventories/control.yaml",
+            "inventories/from_controller.yaml",
+            "-u",
+            "controller",
             "--tags",
             tag,
         ])
