@@ -196,7 +196,7 @@ async fn post_webhook(
 
     // Run the Ansible playbook with appropriate tag
     match Command::new("ansible-playbook")
-        .current_dir(&ansible_path)
+        .current_dir("/opt/cloud-ansible")
         .args([
             "playbook.yml",
             "-i",
