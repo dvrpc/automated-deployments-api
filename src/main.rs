@@ -15,6 +15,10 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 
+struct ServerContext {
+    ansible_path: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
     // Set up a logger.
@@ -44,7 +48,12 @@ async fn main() -> Result<(), String> {
     // Panic if no .env file.
     dotenvy::dotenv().expect("Unable to load .env file.");
 
-    // Start the server.
+    // Get env var for path to ansible project, panic if it doesn't exist.
+    let ansible_path =
+        env::var("PATH_TO_ANSIBLE_PROJECT").expect("Unable to load ansible path from .env file.");
+
+    // Start the server, passing ansible_path in context so it's available to endpoint.
+    let context = ServerContext { ansible_path };
     let server = HttpServerStarter::new(
         &ConfigDropshot {
             bind_address: "127.0.0.1:7878".parse().unwrap(),
@@ -52,7 +61,7 @@ async fn main() -> Result<(), String> {
             tls: None,
         },
         api,
-        (),
+        context,
         &log,
     )
     .map_err(|error| format!("failed to start server: {}", error))?
@@ -67,7 +76,7 @@ async fn main() -> Result<(), String> {
     path = "/api/ad"
 }]
 async fn post_webhook(
-    rqctx: RequestContext<()>,
+    rqctx: RequestContext<ServerContext>,
     body: UntypedBody,
 ) -> Result<HttpResponseOk<()>, HttpError> {
     let tag_map = HashMap::from([
@@ -78,9 +87,12 @@ async fn post_webhook(
         ("dvrpc/sidewalk-priorities-api", "mcosp"),
         ("dvrpc/rtsp-api", "rtsp"),
         ("dvrpc/tp-updates", "tp_updates"),
-        // ("dvrpc/cjtf", "cjtf"),
+        ("dvrpc/cjtf", "cjtf"),
     ]);
 
+    // Get path from context.
+    let context = rqctx.context();
+    let ansible_path = serde_json::to_string_pretty(&context.ansible_path).unwrap();
     // Get required header
     let headers = rqctx.request.headers();
     if !headers.contains_key("x-hub-signature-256") {
@@ -184,9 +196,9 @@ async fn post_webhook(
 
     // Run the Ansible playbook with appropriate tag
     match Command::new("ansible-playbook")
-        .current_dir("/srv/cloud-ansible")
+        .current_dir(&ansible_path)
         .args([
-            "controller_playbook.yaml",
+            "playbook.yaml",
             "-i",
             "inventories/from_controller.yaml",
             "-u",
