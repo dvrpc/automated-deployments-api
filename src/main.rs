@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::process::Command;
+use std::thread;
 
 use camino::Utf8PathBuf;
 use dropshot::{endpoint, UntypedBody};
@@ -12,6 +13,9 @@ use hmac::{Hmac, Mac};
 use http::StatusCode;
 use serde_json::Value;
 use sha2::Sha256;
+
+#[macro_use(slog_info)]
+extern crate slog;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -79,7 +83,7 @@ async fn post_webhook(
     rqctx: RequestContext<ServerContext>,
     body: UntypedBody,
 ) -> Result<HttpResponseOk<()>, HttpError> {
-    let tag_map = HashMap::from([
+    let mut tag_map = HashMap::from([
         ("dvrpc/crash-api", "crash"),
         ("dvrpc/oced-econ-data", "econ_data"),
         ("dvrpc/low-stress-bike-routing", "low_stress_bike_routing"),
@@ -182,7 +186,7 @@ async fn post_webhook(
     };
 
     // Get corresponding tag to use in Ansible playbook.
-    let tag = match tag_map.get(name.as_str()) {
+    let tag = match tag_map.remove(name.as_str()) {
         None => {
             return Err(HttpError {
                 status_code: StatusCode::BAD_REQUEST,
@@ -194,32 +198,41 @@ async fn post_webhook(
         Some(v) => v,
     };
 
-    // Run the Ansible playbook with appropriate tag
-    match Command::new("ansible-playbook")
-        .current_dir("/opt/cloud-ansible")
-        .args([
-            "playbook.yml",
-            "-i",
-            "inventories/from_controller.yaml",
-            "-u",
-            "controller",
-            "--tags",
-            tag,
-        ])
-        .output()
-    {
-        Ok(v) if !v.status.success() => Err(HttpError {
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-            error_code: None,
-            external_message: "Program did not complete successfully.".to_string(),
-            internal_message: String::from_utf8_lossy(&v.stderr).into_owned(),
-        }),
-        Ok(_) => Ok(HttpResponseOk(())),
-        Err(e) => Err(HttpError {
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-            error_code: None,
-            external_message: "Internal server error".to_string(),
-            internal_message: format!("Error trying to run the program: {}", e),
-        }),
-    }
+    // Github's webhooks have a 10-second timeout
+    // (see <https://docs.github.com/en/webhooks/testing-and-troubleshooting-webhooks/troubleshooting-webhooks#timed-out>)
+    // and since Ansible playbooks usually take much longer than this to run, we put it in a
+    // thread so it can be done in the background and we can send a response to the webhook.
+    // This means we must log the result separately from the response.
+
+    let log = rqctx.log;
+
+    thread::spawn(move || {
+        let status = Command::new("ansible-playbook")
+            .current_dir("/opt/cloud-ansible")
+            .args([
+                "playbook.yml",
+                "-i",
+                "inventories/from_controller.yaml",
+                "-u",
+                "controller",
+                "--tags",
+                tag,
+            ])
+            .status();
+
+        let status = match status {
+            Ok(v) => {
+                if v.success() {
+                    "success".to_string()
+                } else {
+                    "failure".to_string()
+                }
+            }
+            Err(e) => e.to_string(),
+        };
+
+        slog_info!(log, "Ansible command completed"; "status" => status);
+    });
+
+    Ok(HttpResponseOk(()))
 }

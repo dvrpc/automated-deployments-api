@@ -16,4 +16,5 @@ hmac = "0.12.1"
 http = "0.2.9"
 serde_json = "1.0.107"
 sha2 = "0.10.7"
+slog = "2.7.0"
 tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }

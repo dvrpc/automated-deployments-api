@@ -93,6 +93,7 @@ dependencies = [
  "http",
  "serde_json",
  "sha2",
+ "slog",
  "tokio",
 ]
 
