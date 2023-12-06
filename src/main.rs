@@ -231,24 +231,32 @@ async fn post_webhook(
             }
             Err(e) => e.to_string(),
         };
+        slog_info!(log, "Ansible command completed"; "status" => status.clone());
 
-        // Send email with local sendmail program
-        let email = Message::builder()
-            .from(
-                "Controller <root@controller.cloud.dvrpc.org>"
-                    .parse()
-                    .unwrap(),
-            )
-            .to("KW <kwarner@dvrpc.org>".parse().unwrap())
-            .to("JS <jstrangfeld@dvrpc.org>".parse().unwrap())
+        // Email the results to addresses in .env file. The message is built in separate chunks
+        // b/c the number of addresses is unknown, otherwise it could all be chained at once.
+        let receivers =
+            env::var("EMAIL_RECEIVERS").expect("Unable to load email addreses from .env file");
+        let receivers = receivers.split(',').collect::<Vec<_>>();
+
+        let mut email = Message::builder().from(
+            "Controller <root@controller.cloud.dvrpc.org>"
+                .parse()
+                .unwrap(),
+        );
+
+        for receiver in receivers.iter() {
+            email = email.to(receiver.parse().unwrap());
+        }
+
+        let email = email
             .subject("Result from automated deployment API")
             .body(format!("Attempt to redeploy {name}: {status}."))
             .unwrap();
 
+        // Use local sendmail program to send email.
         let sender = SendmailTransport::new();
         let _ = sender.send(&email);
-
-        slog_info!(log, "Ansible command completed"; "status" => status);
     });
 
     Ok(HttpResponseOk(()))
