@@ -14,6 +14,7 @@ dotenvy = "0.15.7"
 dropshot = "0.9.0"
 hmac = "0.12.1"
 http = "0.2.9"
+lettre = { version = "0.11", features = ["sendmail-transport"] }
 serde_json = "1.0.107"
 sha2 = "0.10.7"
 slog = "2.7.0"

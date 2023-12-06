@@ -11,6 +11,7 @@ use dropshot::{
 };
 use hmac::{Hmac, Mac};
 use http::StatusCode;
+use lettre::{Message, SendmailTransport, Transport};
 use serde_json::Value;
 use sha2::Sha256;
 
@@ -230,6 +231,22 @@ async fn post_webhook(
             }
             Err(e) => e.to_string(),
         };
+
+        // Send email with local sendmail program
+        let email = Message::builder()
+            .from(
+                "Controller <root@controller.cloud.dvrpc.org>"
+                    .parse()
+                    .unwrap(),
+            )
+            .to("KW <kwarner@dvrpc.org>".parse().unwrap())
+            .to("JS <jstrangfeld@dvrpc.org>".parse().unwrap())
+            .subject("Result from automated deployment API")
+            .body(format!("Attempt to redeploy {name}: {status}."))
+            .unwrap();
+
+        let sender = SendmailTransport::new();
+        let _ = sender.send(&email);
 
         slog_info!(log, "Ansible command completed"; "status" => status);
     });
