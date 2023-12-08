@@ -83,7 +83,7 @@ async fn main() -> Result<(), String> {
 async fn post_webhook(
     rqctx: RequestContext<ServerContext>,
     body: UntypedBody,
-) -> Result<HttpResponseOk<()>, HttpError> {
+) -> Result<HttpResponseOk<String>, HttpError> {
     let mut tag_map = HashMap::from([
         ("dvrpc/crash-api", "crash"),
         ("dvrpc/oced-econ-data", "econ_data"),
@@ -222,7 +222,7 @@ async fn post_webhook(
     // If action was not "closed", just log and return early.
     if action != "closed" {
         slog_info!(log, "Pull request opened"; "status" => "Nothing to do");
-        return Ok(HttpResponseOk(()));
+        return Ok(HttpResponseOk("Nothing to do.".to_string()));
     }
 
     // If merged is false, log, email, and return early.
@@ -252,7 +252,9 @@ async fn post_webhook(
         // Use local sendmail program to send email.
         let sender = SendmailTransport::new();
         let _ = sender.send(&email);
-        return Ok(HttpResponseOk(()));
+        return Ok(HttpResponseOk(
+            "Not merged, no deployment attempted.".to_string(),
+        ));
     }
 
     // Get corresponding tag to use in Ansible playbook.
@@ -326,5 +328,5 @@ async fn post_webhook(
         let _ = sender.send(&email);
     });
 
-    Ok(HttpResponseOk(()))
+    Ok(HttpResponseOk("Success!".to_string()))
 }
