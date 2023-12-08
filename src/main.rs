@@ -246,7 +246,9 @@ async fn post_webhook(
 
         let email = email
             .subject("Result from automated deployment API")
-            .body(format!("Pull request on {name} was not successul."))
+            .body(format!(
+                "Pull request on {name} was not merged, no deployment attempted."
+            ))
             .unwrap();
 
         // Use local sendmail program to send email.
@@ -328,5 +330,10 @@ async fn post_webhook(
         let _ = sender.send(&email);
     });
 
-    Ok(HttpResponseOk("Success!".to_string()))
+    let completed_response = format!(
+        "Redeployment will be attempted - results will be emailed to {:?}.",
+        env::var("EMAIL_RECEIVERS")
+    );
+
+    Ok(HttpResponseOk(completed_response))
 }
