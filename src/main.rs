@@ -62,7 +62,7 @@ async fn main() -> Result<(), String> {
     let server = HttpServerStarter::new(
         &ConfigDropshot {
             bind_address: "127.0.0.1:7878".parse().unwrap(),
-            request_body_max_bytes: 16384,
+            request_body_max_bytes: 102400,
             tls: None,
         },
         api,
@@ -95,9 +95,11 @@ async fn post_webhook(
         ("dvrpc/cjtf", "cjtf"),
     ]);
 
-    // Get path from context.
+    // Get path and log from context.
     let context = rqctx.context();
     let ansible_path = serde_json::to_string_pretty(&context.ansible_path).unwrap();
+    let log = rqctx.log;
+
     // Get required header
     let headers = rqctx.request.headers();
     if !headers.contains_key("x-hub-signature-256") {
@@ -161,21 +163,9 @@ async fn post_webhook(
         });
     }
 
-    // Determine what app/API this is for.
-    let name = match serde_json::from_slice::<Value>(body.as_bytes()) {
-        Ok(v) => match v.get("repository") {
-            // Value.as_str() strips double quotes, but we also need it to be owned, so also
-            // use to_string()
-            Some(repo) => repo["full_name"].as_str().unwrap().to_string(),
-            None => {
-                return Err(HttpError {
-                    status_code: StatusCode::BAD_REQUEST,
-                    error_code: None,
-                    external_message: "Unable to get repository field from webhook.".to_string(),
-                    internal_message: "Unable to get repository field from webhook.".to_string(),
-                });
-            }
-        },
+    // Get body to extract information from.
+    let body = match serde_json::from_slice::<Value>(body.as_bytes()) {
+        Ok(v) => v,
         Err(_) => {
             return Err(HttpError {
                 status_code: StatusCode::BAD_REQUEST,
@@ -185,6 +175,85 @@ async fn post_webhook(
             });
         }
     };
+
+    // The webhook should be configured to send on pull request events only. However, there is no
+    // "successful pull request" event - we have to determine that from the request body.
+    let action = match body.get("action") {
+        Some(v) => v.as_str().unwrap().to_string(),
+        None => {
+            return Err(HttpError {
+                status_code: StatusCode::BAD_REQUEST,
+                error_code: None,
+                external_message: "Unable to get 'action' field from webhook body.".to_string(),
+                internal_message: "Unable to get 'action' field from webhook body.".to_string(),
+            });
+        }
+    };
+
+    let merged = match body.get("pull_request") {
+        Some(pull_request) => pull_request["merged"].clone(),
+        None => {
+            return Err(HttpError {
+                status_code: StatusCode::BAD_REQUEST,
+                error_code: None,
+                external_message: "Unable to get 'pull_request' field from webhook body."
+                    .to_string(),
+                internal_message: "Unable to get 'pull_request' field from webhook body."
+                    .to_string(),
+            });
+        }
+    };
+
+    // Determine what app/API this is for.
+    let name = match body.get("repository") {
+        // Value.as_str() strips double quotes, but we also need it to be owned, so also
+        // use to_string()
+        Some(repo) => repo["full_name"].as_str().unwrap().to_string(),
+        None => {
+            return Err(HttpError {
+                status_code: StatusCode::BAD_REQUEST,
+                error_code: None,
+                external_message: "Unable to get repository field from webhook.".to_string(),
+                internal_message: "Unable to get repository field from webhook.".to_string(),
+            });
+        }
+    };
+
+    // If action was not "closed", just log and return early.
+    if action != "closed" {
+        slog_info!(log, "Pull request opened"; "status" => "Nothing to do");
+        return Ok(HttpResponseOk(()));
+    }
+
+    // If merged is false, log, email, and return early.
+    if merged == false {
+        slog_info!(log, "Pull request status"; "merged" => "false");
+        // Email the results to addresses in .env file. The message is built in separate chunks
+        // b/c the number of addresses is unknown, otherwise it could all be chained at once.
+        let receivers =
+            env::var("EMAIL_RECEIVERS").expect("Unable to load email addreses from .env file");
+        let receivers = receivers.split(',').collect::<Vec<_>>();
+
+        let mut email = Message::builder().from(
+            "Controller <root@controller.cloud.dvrpc.org>"
+                .parse()
+                .unwrap(),
+        );
+
+        for receiver in receivers.iter() {
+            email = email.to(receiver.parse().unwrap());
+        }
+
+        let email = email
+            .subject("Result from automated deployment API")
+            .body(format!("Pull request on {name} was not successul."))
+            .unwrap();
+
+        // Use local sendmail program to send email.
+        let sender = SendmailTransport::new();
+        let _ = sender.send(&email);
+        return Ok(HttpResponseOk(()));
+    }
 
     // Get corresponding tag to use in Ansible playbook.
     let tag = match tag_map.remove(name.as_str()) {
@@ -204,8 +273,6 @@ async fn post_webhook(
     // and since Ansible playbooks usually take much longer than this to run, we put it in a
     // thread so it can be done in the background and we can send a response to the webhook.
     // This means we must log the result separately from the response.
-
-    let log = rqctx.log;
 
     thread::spawn(move || {
         let status = Command::new("ansible-playbook")
