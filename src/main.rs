@@ -94,6 +94,8 @@ async fn post_webhook(
         ("dvrpc/tp-updates", "tp_updates"),
         ("dvrpc/cjtf", "cjtf"),
         ("dvrpc/regional-housing", "housing_submarkets"),
+        ("dvrpc/link", "link_fe"),
+        ("dvrpc/link-api", "link_api"),
     ]);
 
     // Get path and log from context.
