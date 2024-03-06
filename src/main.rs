@@ -100,7 +100,7 @@ async fn post_webhook(
 
     // Get path and log from context.
     let context = rqctx.context();
-    let ansible_path = serde_json::to_string_pretty(&context.ansible_path).unwrap();
+    let ansible_path = context.ansible_path.clone().to_string();
     let log = rqctx.log;
 
     // Get required header
@@ -283,7 +283,7 @@ async fn post_webhook(
 
     thread::spawn(move || {
         let status = Command::new("ansible-playbook")
-            .current_dir("/opt/cloud-ansible")
+            .current_dir(ansible_path)
             .args([
                 "playbook.yml",
                 "-i",
