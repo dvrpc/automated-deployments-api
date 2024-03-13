@@ -44,6 +44,7 @@ async fn main() -> Result<(), String> {
      * allowing this metadata to live right alongside the handler function.
      */
     api.register(post_webhook).unwrap();
+    api.register(get_status).unwrap();
 
     // Create an OpenAPI definition, adding title and version.
     let mut openapi = api.openapi("DVRPC Automated Deployments API", "0.1.0");
@@ -63,7 +64,7 @@ async fn main() -> Result<(), String> {
         &ConfigDropshot {
             bind_address: "127.0.0.1:7878".parse().unwrap(),
             request_body_max_bytes: 102400,
-            tls: None,
+            ..Default::default()
         },
         api,
         context,
@@ -73,6 +74,15 @@ async fn main() -> Result<(), String> {
     .start();
 
     server.await
+}
+
+/// Endpoint for uptime monitoring
+#[endpoint {
+    method = GET,
+    path = "/api/status"
+}]
+async fn get_status(_: RequestContext<ServerContext>) -> Result<HttpResponseOk<String>, HttpError> {
+    Ok(HttpResponseOk("ok".to_string()))
 }
 
 /// Handle webhooks for potential automated deployment

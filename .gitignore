@@ -3,3 +3,4 @@
 .env
 api.log
 dist/
+Cargo.lock
