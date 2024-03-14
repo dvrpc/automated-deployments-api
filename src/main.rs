@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::process::Command;
+use std::str;
 use std::thread;
 
 use camino::Utf8PathBuf;
@@ -293,7 +294,7 @@ async fn post_webhook(
     // This means we must log the result separately from the response.
 
     thread::spawn(move || {
-        let status = Command::new("ansible-playbook")
+        let output = Command::new("ansible-playbook")
             .current_dir(ansible_path)
             .args([
                 "playbook.yml",
@@ -304,19 +305,30 @@ async fn post_webhook(
                 "--tags",
                 tag,
             ])
-            .status();
+            .output();
 
-        let status = match status {
+        // Collect result of running command.
+        let (status, stdout, stderr) = match output {
             Ok(v) => {
-                if v.success() {
-                    "success".to_string()
-                } else {
-                    "failure".to_string()
-                }
+                let status = match v.status.success() {
+                    true => "success".to_string(),
+                    false => "failure".to_string(),
+                };
+                (status, Some(v.stdout), Some(v.stderr))
             }
-            Err(e) => e.to_string(),
+            Err(e) => (e.to_string(), None, None),
         };
         slog_info!(log, "Ansible command completed"; "status" => status.clone());
+
+        let mut email_body = format!("Attempt to redeploy {name}: {status}");
+
+        if let Some(v) = stdout {
+            email_body.push_str(str::from_utf8(&v).unwrap())
+        }
+
+        if let Some(v) = stderr {
+            email_body.push_str(str::from_utf8(&v).unwrap())
+        }
 
         // Email the results to addresses in .env file. The message is built in separate chunks
         // b/c the number of addresses is unknown, otherwise it could all be chained at once.
@@ -336,7 +348,7 @@ async fn post_webhook(
 
         let email = email
             .subject("Result from automated deployment API")
-            .body(format!("Attempt to redeploy {name}: {status}."))
+            .body(email_body)
             .unwrap();
 
         // Use local sendmail program to send email.
