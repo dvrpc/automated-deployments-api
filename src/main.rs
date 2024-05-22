@@ -108,6 +108,7 @@ async fn post_webhook(
         ("dvrpc/link", "link_fe"),
         ("dvrpc/link-api", "link_api"),
         ("dvrpc/test", "test_app"),
+        ("dvrpc/tip-remix", "tip_25"),
     ]);
 
     // Get path and log from context.
