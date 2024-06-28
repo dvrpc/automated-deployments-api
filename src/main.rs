@@ -107,6 +107,7 @@ async fn post_webhook(
         ("dvrpc/regional-housing", "housing_submarkets"),
         ("dvrpc/link", "link_fe"),
         ("dvrpc/link-api", "link_api"),
+        ("dvrpc/project-intake-api", "project_intake_api"),
         ("dvrpc/test", "test_app"),
         ("dvrpc/tip-remix", "tip_25"),
     ]);
