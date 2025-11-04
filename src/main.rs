@@ -99,7 +99,7 @@ async fn post_webhook(
         ("dvrpc/crash-api", "crash"),
         ("dvrpc/oced-econ-data", "econ_data"),
         ("dvrpc/low-stress-bike-routing", "low_stress_bike_routing"),
-        ("dvrpc/lps-api", "lspv2"),
+        ("dvrpc/lps-api", "lps_v2"),
         ("dvrpc/sidewalk-priorities-api", "mcosp"),
         ("dvrpc/rtsp-api", "rtsp"),
         ("dvrpc/tp-updates", "tp_updates"),
@@ -109,7 +109,6 @@ async fn post_webhook(
         ("dvrpc/link-api", "link_api"),
         ("dvrpc/project-intake-api", "project_intake_api"),
         ("dvrpc/test", "test_app"),
-        ("dvrpc/tip-remix", "tip_25"),
     ]);
 
     // Get path and log from context.
