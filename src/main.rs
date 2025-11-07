@@ -301,6 +301,8 @@ async fn post_webhook(
                 "playbook.yaml",
                 "-i",
                 "inventories/digital_ocean.yaml",
+                "--private-key",
+                "~/.ssh/controller",
                 "-u",
                 "controller",
                 "--tags",
