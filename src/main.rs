@@ -298,9 +298,9 @@ async fn post_webhook(
         let output = Command::new("ansible-playbook")
             .current_dir(ansible_path)
             .args([
-                "playbook.yml",
+                "playbook.yaml",
                 "-i",
-                "inventories/from_controller.yaml",
+                "inventories/digital_ocean.yaml",
                 "-u",
                 "controller",
                 "--tags",
