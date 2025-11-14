@@ -24,3 +24,5 @@ The program requires three environment variables in an ignored .env file:
     - for "which events would you like to trigger with this webook", chose "Let me select individual events", click the checkbox for "Pull requests" and **uncheck** the default of "Pushes".
     - click the "Add webhook" button at the button to activate it.
 2. In the code for this API (in src/main.rs), add the repo name/tag in the code and redeploy. (This is currently hard-coded, but probably shouldn't be.)
+
+NOTE: upon setting up the webhook on a repository, it will attempt to ping the server. This will be reported as a failure, as we reject anything that's not a pull request with a certain body. It can be ignored.
