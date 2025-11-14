@@ -95,19 +95,20 @@ async fn post_webhook(
     rqctx: RequestContext<ServerContext>,
     body: UntypedBody,
 ) -> Result<HttpResponseOk<String>, HttpError> {
+    // github repository / tag in ansible playbook
     let mut tag_map = HashMap::from([
         ("dvrpc/crash-api", "crash"),
-        ("dvrpc/oced-econ-data", "econ_data"),
+        ("dvrpc/link-api", "link_api"),
+        ("dvrpc/link", "link_fe"),
         ("dvrpc/low-stress-bike-routing", "low_stress_bike_routing"),
         ("dvrpc/lps-api", "lps_v2"),
-        ("dvrpc/sidewalk-priorities-api", "mcosp"),
-        ("dvrpc/rtsp-api", "rtsp"),
-        ("dvrpc/tp-updates", "tp_updates"),
-        ("dvrpc/cjtf", "cjtf"),
-        ("dvrpc/regional-housing", "housing_submarkets"),
-        ("dvrpc/link", "link_fe"),
-        ("dvrpc/link-api", "link_api"),
+        ("dvrpc/oced-econ-data", "econ_data"),
         ("dvrpc/project-intake-api", "project_intake_api"),
+        ("dvrpc/regional-housing", "housing_submarkets"),
+        ("dvrpc/rtsp-api", "rtsp"),
+        ("dvrpc/sidewalk-priorities-api", "mcosp"),
+        ("dvrpc/tp-updates", "tp_updates"),
+        ("dvrpc/traffic-counts-api", "traffic_counts_api_v2"),
         ("dvrpc/test", "test_app"),
     ]);
 
