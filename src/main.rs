@@ -97,6 +97,10 @@ async fn post_webhook(
 ) -> Result<HttpResponseOk<String>, HttpError> {
     // github repository / tag in ansible playbook
     let mut tag_map = HashMap::from([
+        ("dvrpc/AQP-API", "aqp_api"),
+        ("dvrpc/airqualitypartnership.org", "aqp_fe"),
+        ("dvrpc/community-profiles-api", "comm_profiles"),
+        ("dvrpc/community-profiles-frontend", "comm_profiles_fe"),
         ("dvrpc/crash-api", "crash"),
         ("dvrpc/link-api", "link_api"),
         ("dvrpc/link", "link_fe"),
