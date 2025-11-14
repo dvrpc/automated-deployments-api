@@ -14,14 +14,14 @@ The program requires three environment variables in an ignored .env file:
 ## How to Use the API for Deployments
 
 1. Set up a webhook on the repository of the code to be deployed.
-  a. go to Settings of the repository in GitHub
-  b. select Webhooks
-  c. click on the button "Add Webhook"
-  d. Fill out the form:
-    - use "https://controller.cloud.dvrpc.org/api/ad" for the payload url
-    - select "application/json" for the content type
-    - add secret mentioned above (GITHUB_TOKEN env var)
-    - for "which events would you like to trigger with this webook", chose "Let me select individual events", click the checkbox for "Pull requests" and **uncheck** the default of "Pushes".
+    1. go to Settings of the repository in GitHub
+    2. select Webhooks
+    3. click on the button "Add Webhook"
+    4. Fill out the form:
+      - use "https://controller.cloud.dvrpc.org/api/ad" for the payload url
+      - select "application/json" for the content type
+      - add secret mentioned above (GITHUB_TOKEN env var)
+      - for "which events would you like to trigger with this webook", chose "Let me select individual events", click the checkbox for "Pull requests" and **uncheck** the default of "Pushes".
     - click the "Add webhook" button at the button to activate it.
 2. In the code for this API (in src/main.rs), add the repo name/tag in the code and redeploy. (This is currently hard-coded, but probably shouldn't be.)
 
