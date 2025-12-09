@@ -16,9 +16,6 @@ use lettre::{Message, SendmailTransport, Transport};
 use serde_json::Value;
 use sha2::Sha256;
 
-#[macro_use(slog_info)]
-extern crate slog;
-
 type HmacSha256 = Hmac<Sha256>;
 
 struct ServerContext {
@@ -120,6 +117,24 @@ async fn post_webhook(
     let context = rqctx.context();
     let ansible_path = context.ansible_path.clone().to_string();
     let log = rqctx.log;
+
+    // Pull the cloud-ansible repository to ensure it's the latest version.
+    match Command::new("git")
+        .arg("pull")
+        .env("GIT_SSH_COMMAND", "ssh -i ~/.ssh/cloud_ansible_deploy_key")
+        .current_dir(ansible_path.clone())
+        .output()
+    {
+        Ok(_) => slog::info!(log, "cloud-ansible repo updated"; "status" => "success"),
+        Err(e) => {
+            return Err(HttpError {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                error_code: None,
+                external_message: "Unable to update cloud-ansible repository.".to_string(),
+                internal_message: format!("Unable to update cloud-ansible repository: {e}"),
+            })
+        }
+    }
 
     // Get required header
     let headers = rqctx.request.headers();
@@ -242,13 +257,13 @@ async fn post_webhook(
 
     // If action was not "closed", just log and return early.
     if action != "closed" {
-        slog_info!(log, "Pull request opened"; "status" => "Nothing to do");
+        slog::info!(log, "Pull request opened"; "status" => "Nothing to do");
         return Ok(HttpResponseOk("Nothing to do.".to_string()));
     }
 
     // If merged is false, log, email, and return early.
     if merged == false {
-        slog_info!(log, "Pull request status"; "merged" => "false");
+        slog::info!(log, "Pull request status"; "merged" => "false");
         // Email the results to addresses in .env file. The message is built in separate chunks
         // b/c the number of addresses is unknown, otherwise it could all be chained at once.
         let receivers =
@@ -326,7 +341,7 @@ async fn post_webhook(
             }
             Err(e) => (e.to_string(), None, None),
         };
-        slog_info!(log, "Ansible command completed"; "status" => status.clone());
+        slog::info!(log, "Ansible command completed"; "status" => status.clone());
 
         let mut email_body = format!("Attempt to redeploy {name}: {status}");
 
