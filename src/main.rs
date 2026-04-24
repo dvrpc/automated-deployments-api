@@ -105,6 +105,8 @@ async fn post_webhook(
         ("dvrpc/lps-api", "lps_v2"),
         ("dvrpc/oced-econ-data", "econ_data"),
         ("dvrpc/project-intake-api", "project_intake_api"),
+        ("dvrpc/project-inventory-api", "project_inventory_api"),
+        ("dvrpc/project-inventory-frontend", "project_inventory_fe"),
         ("dvrpc/regional-housing", "housing_submarkets"),
         ("dvrpc/rtsp-api", "rtsp"),
         ("dvrpc/sidewalk-priorities-api", "mcosp"),
