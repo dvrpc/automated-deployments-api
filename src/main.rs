@@ -324,7 +324,7 @@ async fn post_webhook(
                 "-i",
                 "inventories/digital_ocean.yaml",
                 "--private-key",
-                "~/.ssh/controller",
+                "~/.ssh/controller_2026",
                 "-u",
                 "controller",
                 "--tags",
